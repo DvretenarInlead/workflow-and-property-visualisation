@@ -17,6 +17,7 @@ from the HubSpot Automation API.
 | View | What it shows |
 | --- | --- |
 | **Overview** | Counts, enabled/off status, workflows-per-object, and the most-used properties ranked by read/write references. |
+| **Reports** | Four analytics charts: property impact (workflows depending on each property), reads vs writes by object, workflow complexity, and step-type mix. Colours use a colourblind-safe, validated palette; light & dark modes both supported. |
 | **Workflow flow** | Per-workflow diagram (React Flow). Nodes are colour-coded by type (trigger / branch / action / set-property / delay / end). Pick a property to highlight everywhere it's touched. |
 | **Property map** | A property × workflow matrix. Each cell is **R** (read), **W** (write) or **RW**. Filter by object type or "shared only", and click any cell to jump into that workflow with the property highlighted. |
 

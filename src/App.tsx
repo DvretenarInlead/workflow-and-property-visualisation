@@ -3,9 +3,10 @@ import type { WorkflowDataset } from './types'
 import { loadDataset, propertiesAcrossWorkflows, datasetStats } from './lib/data'
 import { Overview } from './components/Overview'
 import { PropertyMap } from './components/PropertyMap'
+import { Reports } from './components/Reports'
 import { WorkflowFlow, KIND_META } from './components/WorkflowFlow'
 
-type Tab = 'overview' | 'flow' | 'properties'
+type Tab = 'overview' | 'reports' | 'flow' | 'properties'
 
 export function App() {
   const [dataset, setDataset] = useState<WorkflowDataset | null>(null)
@@ -71,6 +72,9 @@ export function App() {
           <button className={tab === 'overview' ? 'tab tab--on' : 'tab'} onClick={() => setTab('overview')}>
             Overview
           </button>
+          <button className={tab === 'reports' ? 'tab tab--on' : 'tab'} onClick={() => setTab('reports')}>
+            Reports
+          </button>
           <button className={tab === 'flow' ? 'tab tab--on' : 'tab'} onClick={() => setTab('flow')}>
             Workflow flow
           </button>
@@ -86,6 +90,15 @@ export function App() {
             workflows={workflows}
             properties={properties}
             stats={stats}
+            onOpenWorkflow={(id) => openWorkflow(id)}
+            onOpenProperty={openProperty}
+          />
+        )}
+
+        {tab === 'reports' && (
+          <Reports
+            workflows={workflows}
+            properties={properties}
             onOpenWorkflow={(id) => openWorkflow(id)}
             onOpenProperty={openProperty}
           />
