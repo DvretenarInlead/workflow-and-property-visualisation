@@ -1,0 +1,9 @@
+node_modules
+dist
+*.tsbuildinfo
+.env
+.env.local
+*.local
+.DS_Store
+# Cached workflow pulls from the live API (keep the sample committed, ignore real exports)
+public/data/workflows.json
