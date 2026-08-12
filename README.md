@@ -152,8 +152,14 @@ The app runs in one of two modes, chosen automatically by which env vars are set
    - **Redirect URL:** `https://<your-app>/auth/hubspot/callback` (must match `HUBSPOT_REDIRECT_URI` exactly).
    - **Scopes:** `oauth automation crm.objects.deals.read crm.objects.tickets.read`
      (automation → workflows; deals/tickets → pipelines). Copy the **Client ID** and **Client secret**.
-2. **Provision Postgres** — on Digital Ocean the `databases` block in `.do/app.yaml` attaches a
-   managed DB and binds `DATABASE_URL` automatically. Tables are created on boot.
+2. **Provision Postgres** — any Postgres works; tables are created on boot.
+   - **External DB (default / simplest):** create a free Postgres on **Neon**, **Supabase**,
+     **Railway**, RDS, etc., and set `DATABASE_URL` to its connection string
+     (e.g. `postgres://user:pass@host/db?sslmode=require`). This is what `.do/app.yaml`
+     expects out of the box.
+   - **DO managed DB:** only if your Digital Ocean plan allows managed databases — a limit-0
+     account fails with `databases.limit_exceeded`. If allowed, uncomment the `databases`
+     block in `.do/app.yaml` and set `DATABASE_URL` to `${db.DATABASE_URL}`.
 3. **Set the env vars** (see `.env.example` / `.do/app.yaml`): `APP_SECRET` (long random),
    `DATABASE_URL`, `HUBSPOT_CLIENT_ID`, `HUBSPOT_CLIENT_SECRET`, `HUBSPOT_REDIRECT_URI`.
 4. Deploy, open the app, click **Connect HubSpot**, authorize, then **Refresh** the portal to sync.
