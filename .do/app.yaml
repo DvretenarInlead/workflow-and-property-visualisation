@@ -26,9 +26,44 @@ services:
       - key: ANTHROPIC_MODEL
         scope: RUN_TIME
         value: claude-opus-5
-      # HubSpot private-app token (automation read scope). Used at run time by the
-      # "Refresh from HubSpot" button (POST /api/refresh). Add as an encrypted
-      # secret in the DO dashboard. Without it the app shows the sample data.
+      # --- Standalone mode (single portal, no login) ---
+      # Optional HubSpot private-app token (automation read). Powers the standalone
+      # "Refresh from HubSpot" button. Not needed if you use portal mode below.
       - key: HUBSPOT_TOKEN
         scope: RUN_TIME
         type: SECRET
+
+      # --- Portal mode (multi-portal, HubSpot OAuth login) ---
+      # Set ALL of the following to switch from standalone to portal mode.
+      # Encryption key for HubSpot tokens at rest + session cookies. Long random string.
+      - key: APP_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      # Postgres connection (bound automatically from the managed DB below).
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      # HubSpot public app OAuth credentials (Developer account → Apps → Auth).
+      - key: HUBSPOT_CLIENT_ID
+        scope: RUN_TIME
+        type: SECRET
+      - key: HUBSPOT_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      # Must EXACTLY match a redirect URL configured on the HubSpot app, and point
+      # at this deployment: https://<your-app>.ondigitalocean.app/auth/hubspot/callback
+      - key: HUBSPOT_REDIRECT_URI
+        scope: RUN_TIME
+        value: https://REPLACE-ME.ondigitalocean.app/auth/hubspot/callback
+      # Optional — OAuth scopes to request (defaults shown). Must be granted on the app.
+      - key: HUBSPOT_SCOPES
+        scope: RUN_TIME
+        value: oauth automation crm.objects.deals.read crm.objects.tickets.read
+
+# Managed Postgres for portal mode (portals + encrypted tokens + cached data).
+# Remove this block if you only use standalone mode.
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    production: false

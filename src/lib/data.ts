@@ -37,14 +37,67 @@ export async function loadDataset(): Promise<WorkflowDataset> {
 export interface RefreshResult {
   count: number
   generatedAt: string
+  pipelines?: number
 }
 
-/** Trigger a live pull from HubSpot on the server. Throws with the server message on failure. */
+/** Trigger a live pull from HubSpot on the server (standalone mode). */
 export async function refreshFromHubspot(): Promise<RefreshResult> {
   const res = await fetch('/api/refresh', { method: 'POST' })
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.error || `Refresh failed (${res.status})`)
   return { count: body.count, generatedAt: body.generatedAt }
+}
+
+// ---- Portal mode ----
+
+export interface PortalSummary {
+  id: string
+  hubId: string
+  name: string
+  lastSynced?: string
+}
+
+export interface SessionInfo {
+  mode: 'standalone' | 'portal'
+  authenticated?: boolean
+  portals?: PortalSummary[]
+}
+
+/** Ask the server which mode to run in (and who's logged in). Static hosts → standalone. */
+export async function getSession(): Promise<SessionInfo> {
+  try {
+    const res = await fetch('/api/session', { headers: { Accept: 'application/json' } })
+    if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+      return (await res.json()) as SessionInfo
+    }
+  } catch {
+    // no server
+  }
+  return { mode: 'standalone' }
+}
+
+export class NeedsSyncError extends Error {
+  needsSync = true
+}
+
+/** Load one portal's cached dataset. Throws NeedsSyncError if it hasn't been synced yet. */
+export async function loadPortalDataset(portalId: string): Promise<WorkflowDataset> {
+  const res = await fetch(`/api/portals/${portalId}/data`, { headers: { Accept: 'application/json' } })
+  if (res.status === 404) throw new NeedsSyncError('This portal has no data yet.')
+  if (!res.ok) throw new Error(`Failed to load portal data (${res.status})`)
+  return (await res.json()) as WorkflowDataset
+}
+
+/** Pull fresh workflows + pipelines for a portal from HubSpot. */
+export async function refreshPortal(portalId: string): Promise<RefreshResult> {
+  const res = await fetch(`/api/portals/${portalId}/refresh`, { method: 'POST' })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || `Refresh failed (${res.status})`)
+  return { count: body.count, generatedAt: body.generatedAt, pipelines: body.pipelines }
+}
+
+export async function logout(): Promise<void> {
+  await fetch('/api/logout', { method: 'POST' }).catch(() => {})
 }
 
 /** Aggregate property usage across every workflow in the dataset. */

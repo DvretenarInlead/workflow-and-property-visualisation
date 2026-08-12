@@ -150,5 +150,31 @@
         { "name": "subject", "label": "Subject", "objectType": "ticket", "reads": 1, "writes": 0, "steps": ["f3"] }
       ]
     }
+  ],
+  "pipelines": [
+    {
+      "id": "default",
+      "label": "Sales Pipeline",
+      "objectType": "deal",
+      "stages": [
+        { "id": "appointmentscheduled", "label": "Appointment Scheduled", "displayOrder": 0, "probability": 0.2 },
+        { "id": "qualifiedtobuy", "label": "Qualified To Buy", "displayOrder": 1, "probability": 0.4 },
+        { "id": "presentationscheduled", "label": "Presentation Scheduled", "displayOrder": 2, "probability": 0.6 },
+        { "id": "contractsent", "label": "Contract Sent", "displayOrder": 3, "probability": 0.8 },
+        { "id": "closedwon", "label": "Closed Won", "displayOrder": 4, "probability": 1, "isClosed": true },
+        { "id": "closedlost", "label": "Closed Lost", "displayOrder": 5, "probability": 0, "isClosed": true }
+      ]
+    },
+    {
+      "id": "support",
+      "label": "Support Pipeline",
+      "objectType": "ticket",
+      "stages": [
+        { "id": "1", "label": "New", "displayOrder": 0, "state": "OPEN" },
+        { "id": "2", "label": "Waiting on contact", "displayOrder": 1, "state": "OPEN" },
+        { "id": "3", "label": "Escalated", "displayOrder": 2, "state": "OPEN" },
+        { "id": "4", "label": "Closed", "displayOrder": 3, "state": "CLOSED", "isClosed": true }
+      ]
+    }
   ]
 }

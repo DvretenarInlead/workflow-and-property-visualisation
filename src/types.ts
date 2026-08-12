@@ -59,12 +59,33 @@ export interface Workflow {
   properties: PropertyUsage[]
 }
 
+export interface PipelineStage {
+  id: string
+  label: string
+  displayOrder: number
+  /** Deals: win probability 0–1. */
+  probability?: number
+  /** Tickets: OPEN / CLOSED. */
+  state?: string
+  isClosed?: boolean
+}
+
+export interface Pipeline {
+  id: string
+  label: string
+  /** "deal" or "ticket". */
+  objectType: string
+  stages: PipelineStage[]
+}
+
 export interface WorkflowDataset {
   /** ISO timestamp of when the data was produced. */
   generatedAt: string
   /** "sample" or "live". */
   source: string
   workflows: Workflow[]
+  /** Deal & ticket pipelines (portal mode). */
+  pipelines?: Pipeline[]
 }
 
 // ---- Derived / cross-workflow aggregates computed in the browser ----

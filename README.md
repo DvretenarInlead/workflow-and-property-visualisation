@@ -20,6 +20,7 @@ from the HubSpot Automation API.
 | **Audit** | Ranked findings across all workflows: trigger loops (infinite re-enrollment), write races (a property set by several workflows), broken cascades (an enabled workflow enrolled by a property only disabled workflows set), dead writes, overlapping triggers, and empty workflows. |
 | **Triggers** | Trigger-first view: pick an enrollment property (e.g. `dealstage`) to see every workflow whose *trigger* uses it — grouped by object and type. |
 | **Chains** | The write→enroll cascade graph: when one workflow writes a property that triggers another, an arrow links them. Shows how automation flows across the portal; self-loops are flagged red. |
+| **Pipelines** | Deal & ticket pipelines with their stages (order, probability, open/closed), and the automation around each: which workflows read (enroll on) or write (move records through) the stage property. Requires a connected portal (pipelines aren't in the sample). |
 | **Reports** | Four analytics charts: property impact (workflows depending on each property), reads vs writes by object, workflow complexity, and step-type mix. Colours use a colourblind-safe, validated palette; light & dark modes both supported. |
 | **Workflow flow** | Per-workflow diagram (React Flow). Nodes are colour-coded by type (trigger / branch / action / set-property / delay / end). Pick a property to highlight everywhere it's touched. |
 | **Property map** | A property × workflow matrix. Each cell is **R** (read), **W** (write) or **RW**. Filter by object type or "shared only", and click any cell to jump into that workflow with the property highlighted. |
@@ -134,6 +135,42 @@ The app falls back to the sample whenever no live data is present. To get live d
 - **On Digital Ocean:** set `HUBSPOT_TOKEN` as a secret (scope **Run time**), deploy,
   then press Refresh in the app. No rebuild needed to re-pull.
 
+## Portal mode (multi-portal + HubSpot OAuth)
+
+The app runs in one of two modes, chosen automatically by which env vars are set:
+
+- **Standalone** (default) — one portal via a single `HUBSPOT_TOKEN`, no login. Everything above.
+- **Portal mode** — users **Connect HubSpot** via OAuth; each portal is stored (with its
+  token **encrypted at rest**) in Postgres and can be switched between. Adds the login
+  screen, a portal switcher, and the Pipelines view. Activates when **all** of
+  `DATABASE_URL`, `APP_SECRET`, `HUBSPOT_CLIENT_ID`, `HUBSPOT_CLIENT_SECRET`, and
+  `HUBSPOT_REDIRECT_URI` are set.
+
+### Setting up portal mode
+
+1. **Create a HubSpot public app** (Developer account → Apps → Create app → Auth tab):
+   - **Redirect URL:** `https://<your-app>/auth/hubspot/callback` (must match `HUBSPOT_REDIRECT_URI` exactly).
+   - **Scopes:** `oauth automation crm.objects.deals.read crm.objects.tickets.read`
+     (automation → workflows; deals/tickets → pipelines). Copy the **Client ID** and **Client secret**.
+2. **Provision Postgres** — on Digital Ocean the `databases` block in `.do/app.yaml` attaches a
+   managed DB and binds `DATABASE_URL` automatically. Tables are created on boot.
+3. **Set the env vars** (see `.env.example` / `.do/app.yaml`): `APP_SECRET` (long random),
+   `DATABASE_URL`, `HUBSPOT_CLIENT_ID`, `HUBSPOT_CLIENT_SECRET`, `HUBSPOT_REDIRECT_URI`.
+4. Deploy, open the app, click **Connect HubSpot**, authorize, then **Refresh** the portal to sync.
+
+Tokens auto-refresh (OAuth access tokens expire ~30 min; the stored refresh token is used).
+Cached workflow + pipeline data lives in Postgres per portal and is re-pulled on Refresh.
+
+### Data pulled per portal
+
+- Workflows: `GET /automation/v4/flows` (list) → then each flow's full detail via
+  `GET /automation/{version}/flows/{flowId}` for accurate steps/enrollment (set
+  `HUBSPOT_ENRICH=0` to skip the per-flow detail calls; `HUBSPOT_FLOWS_VERSION` overrides the version).
+- Pipelines: `GET /crm/v3/pipelines/deals` and `GET /crm/v3/pipelines/tickets`.
+
+All read-only. Portal mode needs the deal/ticket read scopes **in addition to** `automation` —
+so it reads more object types than standalone, but still never writes to HubSpot.
+
 ## How property extraction works
 
 The app never sees HubSpot's raw payloads. `scripts/fetch-workflows.mjs`
@@ -157,8 +194,12 @@ type needs richer handling.
 ## Project layout
 
 ```
-server/index.mjs                    Express: serves the built app + /api/chat proxy to Claude
-.do/app.yaml                        Digital Ocean App Platform spec
+server/index.mjs                    Express: static app + chat proxy + portal/OAuth/pipeline routes
+server/hubspot.mjs                  HubSpot pulls: flows (list + detail), pipelines, normalisation
+server/oauth.mjs                    HubSpot OAuth (authorize, token exchange, refresh)
+server/db.mjs                       Postgres: portals + encrypted tokens + cached data
+server/crypto.mjs                   AES-256-GCM token encryption + signed session cookies
+.do/app.yaml                        Digital Ocean App Platform spec (+ managed Postgres)
 scripts/fetch-workflows.mjs         HubSpot API → normalised JSON
 public/data/workflows.sample.json   Committed demo data
 src/types.ts                        Shared normalised schema
