@@ -5,10 +5,23 @@ import type {
 } from '../types'
 
 /**
- * Load the workflow dataset. Prefers a live pull (workflows.json written by
- * `npm run fetch`) and falls back to the committed sample data.
+ * Load the workflow dataset. Prefers the server endpoint (which reflects an
+ * in-session "Refresh from HubSpot"), then a build-time pull, then the sample.
+ * When hosted statically (no server) the /api/data call is ignored gracefully.
  */
 export async function loadDataset(): Promise<WorkflowDataset> {
+  // 1. Server endpoint — only trust it if it actually returns JSON (a static
+  //    host answers /api/data with the SPA index.html, which we must skip).
+  try {
+    const res = await fetch('/api/data', { headers: { Accept: 'application/json' } })
+    if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+      return (await res.json()) as WorkflowDataset
+    }
+  } catch {
+    // no server — fall through to static files
+  }
+
+  // 2. Static files (build-time pull, then committed sample).
   const base = import.meta.env.BASE_URL
   for (const file of ['data/workflows.json', 'data/workflows.sample.json']) {
     try {
@@ -19,6 +32,19 @@ export async function loadDataset(): Promise<WorkflowDataset> {
     }
   }
   throw new Error('No workflow data found. Run `npm run fetch` or restore the sample file.')
+}
+
+export interface RefreshResult {
+  count: number
+  generatedAt: string
+}
+
+/** Trigger a live pull from HubSpot on the server. Throws with the server message on failure. */
+export async function refreshFromHubspot(): Promise<RefreshResult> {
+  const res = await fetch('/api/refresh', { method: 'POST' })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || `Refresh failed (${res.status})`)
+  return { count: body.count, generatedAt: body.generatedAt }
 }
 
 /** Aggregate property usage across every workflow in the dataset. */

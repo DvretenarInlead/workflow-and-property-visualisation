@@ -357,6 +357,28 @@ body {
 }
 .chat__composer .input { flex: 1; }
 
+/* ---- Header refresh + source ---- */
+.topbar__brand { align-items: center; }
+.topbar__refresh { display: flex; align-items: center; gap: 10px; margin-left: 14px; }
+.topbar__refresh-msg { font-size: 12px; color: var(--muted); max-width: 260px; }
+.source-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.source-dot--live { background: #22c55e; }
+.source-dot--sample { background: #cbd5e1; }
+
+/* ---- Logs ---- */
+.logs { width: 100%; overflow: auto; padding: 20px; }
+.logs__head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 12px; }
+.log-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.log-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.log-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.log-time { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.log-endpoint { font-family: ui-monospace, monospace; font-size: 12px; }
+.log-ms { font-variant-numeric: tabular-nums; color: var(--muted); }
+.log-status { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: capitalize; }
+.log-status--success { background: #dcfce7; color: #15803d; }
+.log-status--error { background: #fee2e2; color: #b91c1c; }
+.log-status--skipped { background: #f1f5f9; color: var(--muted); }
+
 /* ---- Trigger explorer ---- */
 .trigger-chips { display: flex; flex-wrap: wrap; gap: 10px; }
 .trigger-chip {
