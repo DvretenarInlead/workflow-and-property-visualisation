@@ -77,7 +77,7 @@ The health check at `/api/health` returns the active model.
 ## Using your real HubSpot data
 
 1. In HubSpot, create a **Private App** (Settings → Integrations → Private Apps)
-   with the scopes `automation` (read) and `crm.schemas.contacts.read`.
+   with the `automation` (read) scope.
 2. Copy the token:
 
    ```bash
@@ -85,11 +85,12 @@ The health check at `/api/health` returns the active model.
    # edit .env and set HUBSPOT_TOKEN=pat-na1-...
    ```
 
-3. Pull and normalise your workflows:
+3. **Actually run the pull** (setting the token alone does nothing):
 
    ```bash
    set -a && source .env && set +a
-   npm run fetch
+   npm run fetch      # prints "Wrote N workflows to …/public/data/workflows.json"
+   npm run dev        # now shows your workflows
    ```
 
    This calls the HubSpot v4 flows API (`/automation/v4/flows`), normalises each
@@ -97,6 +98,23 @@ The health check at `/api/health` returns the active model.
    app prefers this file over the sample automatically.
 
 The fetched file is git-ignored so you don't commit portal data.
+
+### Still seeing only sample data?
+
+The app loads `workflows.json` if it exists and **falls back to the sample**
+otherwise — so you see sample data whenever the fetch hasn't run:
+
+- **Locally:** you set the token but never ran `npm run fetch`. Run it (step 3);
+  if it errors, the token is the problem (needs the `automation` read scope and a
+  `pat-na1-…` private-app token). After it succeeds, restart `npm run dev`.
+- **On Digital Ocean:** the build has to fetch, because `workflows.json` isn't in
+  the repo. The included `.do/app.yaml` runs `npm run fetch` during the build and
+  declares `HUBSPOT_TOKEN` as a **build-time** secret — set that secret in the DO
+  dashboard and redeploy. (Runtime-only env vars aren't visible during the build,
+  so a `RUN_TIME` token won't work — it must be `BUILD_TIME`.)
+
+To refresh live data you re-run the fetch (locally) or redeploy (on DO); it isn't
+pulled on every page load.
 
 ## How property extraction works
 
