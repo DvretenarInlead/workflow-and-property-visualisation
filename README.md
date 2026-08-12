@@ -158,6 +158,12 @@ The app runs in one of two modes, chosen automatically by which env vars are set
    `DATABASE_URL`, `HUBSPOT_CLIENT_ID`, `HUBSPOT_CLIENT_SECRET`, `HUBSPOT_REDIRECT_URI`.
 4. Deploy, open the app, click **Connect HubSpot**, authorize, then **Refresh** the portal to sync.
 
+**Connecting multiple portals:** once logged in, open the **portal menu** in the header
+(the button showing the current portal name) → **＋ Connect another portal**. Each connect
+is a *separate* HubSpot authorization where you choose which HubSpot account to grant — that's
+how portals with independent tokens are created. The menu lets you switch between them,
+disconnect one, or log out. (Authorizing the *same* account again just updates that portal.)
+
 Tokens auto-refresh (OAuth access tokens expire ~30 min; the stored refresh token is used).
 Cached workflow + pipeline data lives in Postgres per portal and is re-pulled on Refresh.
 

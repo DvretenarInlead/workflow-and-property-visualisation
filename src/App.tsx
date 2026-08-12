@@ -8,7 +8,6 @@ import {
   getSession,
   loadPortalDataset,
   refreshPortal,
-  logout,
   NeedsSyncError,
   type SessionInfo,
 } from './lib/data'
@@ -23,6 +22,7 @@ import { Pipelines } from './components/Pipelines'
 import { Chat } from './components/Chat'
 import { Logs } from './components/Logs'
 import { Login } from './components/Login'
+import { PortalMenu } from './components/PortalMenu'
 import { WorkflowFlow, KIND_META } from './components/WorkflowFlow'
 
 type Tab =
@@ -173,21 +173,7 @@ export function App() {
             </div>
           </div>
           {isPortal && (
-            <div className="portal-bar">
-              <select
-                className="input input--sm"
-                value={portalId ?? ''}
-                onChange={(e) => setPortalId(e.target.value)}
-              >
-                {portals.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              <a className="btn btn--sm" href="/auth/hubspot" title="Connect another portal">+ Portal</a>
-              <button className="btn btn--sm" onClick={() => logout().then(() => window.location.reload())}>
-                Log out
-              </button>
-            </div>
+            <PortalMenu portals={portals} portalId={portalId} onSwitch={setPortalId} />
           )}
           <div className="topbar__refresh">
             <button className="btn btn--primary btn--sm" onClick={refresh} disabled={refreshing}>

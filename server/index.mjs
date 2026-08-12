@@ -27,16 +27,58 @@ const SECURE_COOKIE = process.env.NODE_ENV === 'production'
 // Live dataset pulled via the Refresh button; wins over any on-disk file until restart.
 let liveDataset = null
 
-// In-memory log of calls to the HubSpot API (newest first, capped).
-const MAX_LOG = 200
-const apiLog = []
-function logHubspot(entry) {
-  apiLog.unshift({ at: new Date().toISOString(), ...entry })
-  if (apiLog.length > MAX_LOG) apiLog.length = MAX_LOG
+// In-memory runtime log (newest first, capped). Mirrored to stdout so the
+// platform's runtime logs (e.g. Digital Ocean) capture the same events.
+const MAX_LOG = 500
+const runtimeLog = []
+function logEvent(e) {
+  const entry = {
+    at: new Date().toISOString(),
+    level: e.level || 'info',
+    category: e.category || 'system',
+    ...e,
+  }
+  runtimeLog.unshift(entry)
+  if (runtimeLog.length > MAX_LOG) runtimeLog.length = MAX_LOG
+  const parts = [
+    `[${entry.level.toUpperCase()}]`,
+    entry.category,
+    entry.portal && `portal=${entry.portal}`,
+    entry.endpoint,
+    entry.status && `→ ${entry.status}`,
+    entry.message,
+    entry.ms != null && `(${entry.ms}ms)`,
+  ].filter(Boolean)
+  const line = parts.join(' ')
+  if (entry.level === 'error') console.error(line)
+  else if (entry.level === 'warn') console.warn(line)
+  else console.log(line)
+}
+// Back-compat helper for HubSpot API calls: derive level from status.
+function logHubspot(e) {
+  const level = e.status === 'error' ? 'error' : e.status === 'skipped' ? 'warn' : 'info'
+  logEvent({ level, category: 'hubspot', ...e })
 }
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
+
+// Request logging for API/auth routes (skips noisy polling of logs/health).
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/auth')) return next()
+  if (req.path === '/api/logs' || req.path === '/api/health') return next()
+  const started = Date.now()
+  res.on('finish', () => {
+    logEvent({
+      level: res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info',
+      category: 'http',
+      endpoint: `${req.method} ${req.path}`,
+      status: String(res.statusCode),
+      ms: Date.now() - started,
+    })
+  })
+  next()
+})
 
 // --- Load the on-disk workflow dataset (live build-time pull preferred, sample fallback) ---
 async function loadFileDataset() {
@@ -187,8 +229,10 @@ app.post('/api/refresh', async (_req, res) => {
 })
 
 // HubSpot API call log (newest first).
-app.get('/api/logs', (_req, res) => {
-  res.json({ entries: apiLog })
+app.get('/api/logs', (req, res) => {
+  const level = req.query.level
+  const entries = level && level !== 'all' ? runtimeLog.filter((e) => e.level === level) : runtimeLog
+  res.json({ entries })
 })
 
 // Retrieve one workflow's full detail (GET /automation/{version}/flows/{flowId}).
@@ -217,12 +261,18 @@ app.get('/api/session', async (req, res) => {
   res.json({ mode: 'portal', authenticated, portals })
 })
 
-// Start the HubSpot OAuth flow ("Connect HubSpot").
+// Start the HubSpot OAuth flow ("Connect HubSpot" / "Connect another portal").
 app.get('/auth/hubspot', async (_req, res) => {
   if (!PORTAL_MODE) return res.redirect('/')
-  const state = randomToken()
-  await db.saveOAuthState(state)
-  res.redirect(oauth.authorizeUrl(state))
+  try {
+    const state = randomToken()
+    await db.saveOAuthState(state)
+    logEvent({ category: 'oauth', message: 'authorization started' })
+    res.redirect(oauth.authorizeUrl(state))
+  } catch (err) {
+    logEvent({ level: 'error', category: 'oauth', message: `authorize failed: ${err?.message}` })
+    res.status(500).send(`Could not start OAuth: ${err?.message || 'unknown error'}`)
+  }
 })
 
 // OAuth callback: exchange the code, create/update the portal, start a session.
@@ -257,6 +307,17 @@ app.get('/auth/hubspot/callback', async (req, res) => {
 app.post('/auth/logout', (_req, res) => {
   clearSession(res)
   res.json({ ok: true })
+})
+
+// Disconnect (delete) a portal.
+app.delete('/api/portals/:id', requireSession, async (req, res) => {
+  try {
+    await db.deletePortal(req.params.id)
+    logEvent({ category: 'portal', message: `disconnected portal ${req.params.id}` })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err?.message || 'Could not disconnect portal.' })
+  }
 })
 
 // Cached dataset (workflows + pipelines) for one portal.
@@ -347,6 +408,7 @@ app.post('/api/chat', async (req, res) => {
     res.end()
   } catch (err) {
     const msg = err?.message || 'Chat request failed.'
+    logEvent({ level: 'error', category: 'chat', message: msg })
     if (!res.headersSent) res.status(502).send(msg)
     else res.end(`\n\n[error: ${msg}]`)
   }

@@ -97,7 +97,15 @@ export async function refreshPortal(portalId: string): Promise<RefreshResult> {
 }
 
 export async function logout(): Promise<void> {
-  await fetch('/api/logout', { method: 'POST' }).catch(() => {})
+  await fetch('/auth/logout', { method: 'POST' }).catch(() => {})
+}
+
+export async function disconnectPortal(portalId: string): Promise<void> {
+  const res = await fetch(`/api/portals/${portalId}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}))
+    throw new Error(b.error || `Could not disconnect (${res.status})`)
+  }
 }
 
 /** Aggregate property usage across every workflow in the dataset. */
