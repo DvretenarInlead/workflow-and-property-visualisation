@@ -1,0 +1,154 @@
+{
+  "generatedAt": "2026-07-01T00:00:00.000Z",
+  "source": "sample",
+  "workflows": [
+    {
+      "id": "wf-1001",
+      "name": "Lead Nurturing — MQL to SQL",
+      "type": "DRIP_DELAY",
+      "objectType": "contact",
+      "enabled": true,
+      "updatedAt": "2026-06-18T09:12:00.000Z",
+      "steps": [
+        { "id": "trigger", "kind": "trigger", "actionType": "ENROLLMENT", "title": "Enrollment trigger", "detail": "lifecyclestage is Marketing Qualified Lead", "reads": ["lifecyclestage", "hs_lead_status"], "writes": [] },
+        { "id": "a1", "kind": "action", "actionType": "SEND_EMAIL", "title": "Send Email", "detail": "Welcome to the funnel", "reads": ["email"], "writes": [] },
+        { "id": "a2", "kind": "delay", "actionType": "DELAY", "title": "Delay", "detail": "3 days", "reads": [], "writes": [] },
+        { "id": "a3", "kind": "branch", "actionType": "IF_ELSE_BRANCH", "title": "If/Else Branch", "detail": "Has opened email?", "reads": ["hs_email_last_open_date"], "writes": [] },
+        { "id": "a4", "kind": "setproperty", "actionType": "SET_CONTACT_PROPERTY", "title": "Set Contact Property", "detail": "hs_lead_status = OPEN", "reads": [], "writes": ["hs_lead_status"] },
+        { "id": "a5", "kind": "setproperty", "actionType": "SET_CONTACT_PROPERTY", "title": "Set Contact Property", "detail": "lifecyclestage = SQL", "reads": [], "writes": ["lifecyclestage"] },
+        { "id": "a6", "kind": "action", "actionType": "CREATE_TASK", "title": "Create Task", "detail": "Sales follow-up", "reads": ["hubspot_owner_id"], "writes": [] }
+      ],
+      "edges": [
+        { "id": "e1", "source": "trigger", "target": "a1" },
+        { "id": "e2", "source": "a1", "target": "a2" },
+        { "id": "e3", "source": "a2", "target": "a3" },
+        { "id": "e4", "source": "a3", "target": "a4", "label": "No" },
+        { "id": "e5", "source": "a3", "target": "a5", "label": "Yes" },
+        { "id": "e6", "source": "a5", "target": "a6" }
+      ],
+      "properties": [
+        { "name": "lifecyclestage", "label": "Lifecycle Stage", "objectType": "contact", "reads": 1, "writes": 1, "steps": ["trigger", "a5"] },
+        { "name": "hs_lead_status", "label": "Lead Status", "objectType": "contact", "reads": 1, "writes": 1, "steps": ["trigger", "a4"] },
+        { "name": "email", "label": "Email", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["a1"] },
+        { "name": "hs_email_last_open_date", "label": "Last Email Open Date", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["a3"] },
+        { "name": "hubspot_owner_id", "label": "Contact Owner", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["a6"] }
+      ]
+    },
+    {
+      "id": "wf-1002",
+      "name": "Deal Stage Automation",
+      "type": "PLATFORM_FLOW",
+      "objectType": "deal",
+      "enabled": true,
+      "updatedAt": "2026-06-25T14:40:00.000Z",
+      "steps": [
+        { "id": "trigger", "kind": "trigger", "actionType": "ENROLLMENT", "title": "Enrollment trigger", "detail": "dealstage is Contract Sent", "reads": ["dealstage", "amount"], "writes": [] },
+        { "id": "b1", "kind": "delay", "actionType": "DELAY_UNTIL", "title": "Delay Until", "detail": "closedate", "reads": ["closedate"], "writes": [] },
+        { "id": "b2", "kind": "branch", "actionType": "LIST_BRANCH", "title": "List Branch", "detail": "amount > 10000?", "reads": ["amount"], "writes": [] },
+        { "id": "b3", "kind": "setproperty", "actionType": "SET_DEAL_PROPERTY", "title": "Set Deal Property", "detail": "hs_priority = HIGH", "reads": [], "writes": ["hs_priority"] },
+        { "id": "b4", "kind": "action", "actionType": "CREATE_TASK", "title": "Create Task", "detail": "Notify deal owner", "reads": ["hubspot_owner_id"], "writes": [] },
+        { "id": "b5", "kind": "action", "actionType": "SEND_INTERNAL_EMAIL", "title": "Send Internal Email", "detail": "Big deal alert", "reads": ["dealname", "amount"], "writes": [] }
+      ],
+      "edges": [
+        { "id": "e1", "source": "trigger", "target": "b1" },
+        { "id": "e2", "source": "b1", "target": "b2" },
+        { "id": "e3", "source": "b2", "target": "b3", "label": "Yes" },
+        { "id": "e4", "source": "b3", "target": "b4" },
+        { "id": "e5", "source": "b4", "target": "b5" }
+      ],
+      "properties": [
+        { "name": "dealstage", "label": "Deal Stage", "objectType": "deal", "reads": 1, "writes": 0, "steps": ["trigger"] },
+        { "name": "amount", "label": "Amount", "objectType": "deal", "reads": 3, "writes": 0, "steps": ["trigger", "b2", "b5"] },
+        { "name": "closedate", "label": "Close Date", "objectType": "deal", "reads": 1, "writes": 0, "steps": ["b1"] },
+        { "name": "hs_priority", "label": "Priority", "objectType": "deal", "reads": 0, "writes": 1, "steps": ["b3"] },
+        { "name": "hubspot_owner_id", "label": "Deal Owner", "objectType": "deal", "reads": 1, "writes": 0, "steps": ["b4"] },
+        { "name": "dealname", "label": "Deal Name", "objectType": "deal", "reads": 1, "writes": 0, "steps": ["b5"] }
+      ]
+    },
+    {
+      "id": "wf-1003",
+      "name": "Re-engagement Campaign",
+      "type": "DRIP_DELAY",
+      "objectType": "contact",
+      "enabled": false,
+      "updatedAt": "2026-05-02T11:05:00.000Z",
+      "steps": [
+        { "id": "trigger", "kind": "trigger", "actionType": "ENROLLMENT", "title": "Enrollment trigger", "detail": "hs_email_last_open_date > 90 days ago", "reads": ["hs_email_last_open_date", "lifecyclestage"], "writes": [] },
+        { "id": "c1", "kind": "action", "actionType": "SEND_EMAIL", "title": "Send Email", "detail": "We miss you", "reads": ["email", "firstname"], "writes": [] },
+        { "id": "c2", "kind": "delay", "actionType": "DELAY", "title": "Delay", "detail": "7 days", "reads": [], "writes": [] },
+        { "id": "c3", "kind": "branch", "actionType": "IF_ELSE_BRANCH", "title": "If/Else Branch", "detail": "Still inactive?", "reads": ["hs_email_last_open_date"], "writes": [] },
+        { "id": "c4", "kind": "setproperty", "actionType": "SET_CONTACT_PROPERTY", "title": "Set Contact Property", "detail": "hs_lead_status = UNQUALIFIED", "reads": [], "writes": ["hs_lead_status"] },
+        { "id": "c5", "kind": "end", "actionType": "SUPPRESS", "title": "End / Suppress", "detail": "Remove from active lists", "reads": [], "writes": [] }
+      ],
+      "edges": [
+        { "id": "e1", "source": "trigger", "target": "c1" },
+        { "id": "e2", "source": "c1", "target": "c2" },
+        { "id": "e3", "source": "c2", "target": "c3" },
+        { "id": "e4", "source": "c3", "target": "c4", "label": "Yes" },
+        { "id": "e5", "source": "c4", "target": "c5" }
+      ],
+      "properties": [
+        { "name": "hs_email_last_open_date", "label": "Last Email Open Date", "objectType": "contact", "reads": 2, "writes": 0, "steps": ["trigger", "c3"] },
+        { "name": "lifecyclestage", "label": "Lifecycle Stage", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["trigger"] },
+        { "name": "email", "label": "Email", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["c1"] },
+        { "name": "firstname", "label": "First Name", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["c1"] },
+        { "name": "hs_lead_status", "label": "Lead Status", "objectType": "contact", "reads": 0, "writes": 1, "steps": ["c4"] }
+      ]
+    },
+    {
+      "id": "wf-1004",
+      "name": "New Customer Onboarding",
+      "type": "PLATFORM_FLOW",
+      "objectType": "contact",
+      "enabled": true,
+      "updatedAt": "2026-06-29T08:00:00.000Z",
+      "steps": [
+        { "id": "trigger", "kind": "trigger", "actionType": "ENROLLMENT", "title": "Enrollment trigger", "detail": "lifecyclestage is Customer", "reads": ["lifecyclestage"], "writes": [] },
+        { "id": "d1", "kind": "setproperty", "actionType": "SET_CONTACT_PROPERTY", "title": "Set Contact Property", "detail": "onboarding_status = STARTED", "reads": [], "writes": ["onboarding_status"] },
+        { "id": "d2", "kind": "action", "actionType": "SEND_EMAIL", "title": "Send Email", "detail": "Welcome aboard", "reads": ["email", "firstname"], "writes": [] },
+        { "id": "d3", "kind": "delay", "actionType": "DELAY", "title": "Delay", "detail": "14 days", "reads": [], "writes": [] },
+        { "id": "d4", "kind": "action", "actionType": "CREATE_TASK", "title": "Create Task", "detail": "Check-in call", "reads": ["hubspot_owner_id"], "writes": [] },
+        { "id": "d5", "kind": "setproperty", "actionType": "SET_CONTACT_PROPERTY", "title": "Set Contact Property", "detail": "onboarding_status = COMPLETE", "reads": [], "writes": ["onboarding_status"] }
+      ],
+      "edges": [
+        { "id": "e1", "source": "trigger", "target": "d1" },
+        { "id": "e2", "source": "d1", "target": "d2" },
+        { "id": "e3", "source": "d2", "target": "d3" },
+        { "id": "e4", "source": "d3", "target": "d4" },
+        { "id": "e5", "source": "d4", "target": "d5" }
+      ],
+      "properties": [
+        { "name": "lifecyclestage", "label": "Lifecycle Stage", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["trigger"] },
+        { "name": "onboarding_status", "label": "Onboarding Status", "objectType": "contact", "reads": 0, "writes": 2, "steps": ["d1", "d5"] },
+        { "name": "email", "label": "Email", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["d2"] },
+        { "name": "firstname", "label": "First Name", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["d2"] },
+        { "name": "hubspot_owner_id", "label": "Contact Owner", "objectType": "contact", "reads": 1, "writes": 0, "steps": ["d4"] }
+      ]
+    },
+    {
+      "id": "wf-1005",
+      "name": "Support Ticket Escalation",
+      "type": "PLATFORM_FLOW",
+      "objectType": "ticket",
+      "enabled": true,
+      "updatedAt": "2026-06-30T16:22:00.000Z",
+      "steps": [
+        { "id": "trigger", "kind": "trigger", "actionType": "ENROLLMENT", "title": "Enrollment trigger", "detail": "hs_ticket_priority is HIGH", "reads": ["hs_ticket_priority", "hs_pipeline_stage"], "writes": [] },
+        { "id": "f1", "kind": "branch", "actionType": "LIST_BRANCH", "title": "List Branch", "detail": "Unassigned?", "reads": ["hubspot_owner_id"], "writes": [] },
+        { "id": "f2", "kind": "setproperty", "actionType": "SET_TICKET_PROPERTY", "title": "Set Ticket Property", "detail": "hs_pipeline_stage = ESCALATED", "reads": [], "writes": ["hs_pipeline_stage"] },
+        { "id": "f3", "kind": "action", "actionType": "SEND_INTERNAL_EMAIL", "title": "Send Internal Email", "detail": "Escalation alert", "reads": ["subject"], "writes": [] }
+      ],
+      "edges": [
+        { "id": "e1", "source": "trigger", "target": "f1" },
+        { "id": "e2", "source": "f1", "target": "f2", "label": "Yes" },
+        { "id": "e3", "source": "f2", "target": "f3" }
+      ],
+      "properties": [
+        { "name": "hs_ticket_priority", "label": "Priority", "objectType": "ticket", "reads": 1, "writes": 0, "steps": ["trigger"] },
+        { "name": "hs_pipeline_stage", "label": "Pipeline Stage", "objectType": "ticket", "reads": 1, "writes": 1, "steps": ["trigger", "f2"] },
+        { "name": "hubspot_owner_id", "label": "Ticket Owner", "objectType": "ticket", "reads": 1, "writes": 0, "steps": ["f1"] },
+        { "name": "subject", "label": "Subject", "objectType": "ticket", "reads": 1, "writes": 0, "steps": ["f3"] }
+      ]
+    }
+  ]
+}
