@@ -357,6 +357,53 @@ body {
 }
 .chat__composer .input { flex: 1; }
 
+/* ---- Login ---- */
+.login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login__card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+  padding: 40px; max-width: 460px; text-align: center;
+}
+.login__logo { width: 48px; height: 48px; font-size: 26px; margin: 0 auto 16px; }
+.login__title { font-size: 20px; margin: 0 0 10px; }
+.login__sub { color: var(--muted); line-height: 1.5; margin: 0 0 20px; }
+.login__btn { display: inline-block; text-decoration: none; padding: 11px 22px; font-size: 15px; }
+.login__note { color: var(--muted); font-size: 12px; margin: 16px 0 0; }
+
+/* ---- Portal bar ---- */
+.portal-bar { display: flex; align-items: center; gap: 8px; margin-left: 14px; }
+.input--sm { width: auto; padding: 6px 8px; font-size: 13px; }
+.btn.btn--sm[href] { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* ---- Pipelines ---- */
+.pipelines { width: 100%; overflow: auto; padding: 20px; }
+.pipe-group { margin-bottom: 28px; }
+.pipe-group__title { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; text-transform: capitalize; }
+.pipe-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.pipe-card__name { font-weight: 700; margin-bottom: 10px; }
+.pipe-stages { display: flex; flex-wrap: wrap; gap: 8px; }
+.pipe-stage {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 20px; font-size: 13px;
+}
+.pipe-stage--closed { border-color: var(--k-end); }
+.pipe-stage__order {
+  width: 18px; height: 18px; border-radius: 50%; background: var(--k-trigger); color: #fff;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+}
+.pipe-stage__label { font-weight: 600; }
+.pipe-stage__prob, .pipe-stage__state { color: var(--muted); font-size: 11px; }
+.pipe-logic { margin-top: 8px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+.pipe-logic__head { font-size: 13px; color: var(--viz-ink-2); margin-bottom: 8px; }
+.pipe-logic__list { display: flex; flex-wrap: wrap; gap: 8px; }
+.pipe-wf {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border: 1px solid var(--border); background: var(--bg); border-radius: 8px; cursor: pointer; font: inherit; color: var(--text);
+}
+.pipe-wf:hover { border-color: var(--accent); }
+.pipe-wf__badges { display: inline-flex; gap: 3px; }
+.pipe-wf__badges .badge { width: 20px; height: 18px; font-size: 10px; }
+.pipe-wf__name { font-weight: 600; font-size: 13px; }
+
 /* ---- Header refresh + source ---- */
 .topbar__brand { align-items: center; }
 .topbar__refresh { display: flex; align-items: center; gap: 10px; margin-left: 14px; }

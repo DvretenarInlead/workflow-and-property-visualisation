@@ -129,14 +129,15 @@ export function normaliseWorkflow(raw) {
   }
 }
 
-/**
- * Pull all v4 flows from HubSpot and return a normalised dataset.
- * Throws on auth/API failure so the caller can surface a useful message.
- */
-export async function fetchDataset({ token, base = 'https://api.hubapi.com' } = {}) {
-  if (!token) throw new Error('Missing HubSpot token')
+// The "Retrieve workflow" detail endpoint carries the full config (actions +
+// enrollment) that the list endpoint often omits. Version is overridable.
+const FLOW_DETAIL_VERSION = process.env.HUBSPOT_FLOWS_VERSION || '2026-09-beta'
+// Enrich each listed flow with its detail (accurate steps/properties). On by
+// default; set HUBSPOT_ENRICH=0 to skip (faster, fewer API calls, thinner data).
+const ENRICH = process.env.HUBSPOT_ENRICH !== '0'
 
-  async function api(path) {
+function authGet(base, token) {
+  return async (path) => {
     const res = await fetch(`${base}${path}`, {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     })
@@ -146,6 +147,36 @@ export async function fetchDataset({ token, base = 'https://api.hubapi.com' } = 
     }
     return res.json()
   }
+}
+
+/** Run async fn over items with bounded concurrency. */
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length)
+  let i = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++
+      out[idx] = await fn(items[idx], idx)
+    }
+  })
+  await Promise.all(workers)
+  return out
+}
+
+/** Retrieve one flow's full configuration (GET /automation/{version}/flows/{flowId}). */
+export async function fetchWorkflowDetail({ token, flowId, base = 'https://api.hubapi.com' } = {}) {
+  if (!token) throw new Error('Missing HubSpot token')
+  return authGet(base, token)(`/automation/${FLOW_DETAIL_VERSION}/flows/${encodeURIComponent(flowId)}`)
+}
+
+/**
+ * Pull all flows from HubSpot and return a normalised dataset. Lists via v4,
+ * then (unless disabled) fetches each flow's detail for accurate steps.
+ * Throws on auth/API failure so the caller can surface a useful message.
+ */
+export async function fetchDataset({ token, base = 'https://api.hubapi.com', enrich = ENRICH } = {}) {
+  if (!token) throw new Error('Missing HubSpot token')
+  const api = authGet(base, token)
 
   const results = []
   let after
@@ -156,9 +187,69 @@ export async function fetchDataset({ token, base = 'https://api.hubapi.com' } = 
     after = page.paging?.next?.after
   } while (after)
 
+  let raws = results
+  if (enrich && results.length) {
+    // Replace each summary with its detailed config; keep the summary on error.
+    raws = await mapLimit(results, 5, async (flow) => {
+      const id = flow.id ?? flow.flowId
+      if (id == null) return flow
+      try {
+        return await fetchWorkflowDetail({ token, flowId: id, base })
+      } catch {
+        return flow
+      }
+    })
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     source: 'live',
-    workflows: results.map(normaliseWorkflow),
+    workflows: raws.map(normaliseWorkflow),
   }
+}
+
+// ---- Pipelines (deals + tickets) ----
+
+/** Normalise a HubSpot pipeline into { id, label, objectType, stages[] }. */
+function normalisePipeline(raw, objectType) {
+  const stages = (raw.stages || [])
+    .slice()
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+    .map((s) => ({
+      id: s.id,
+      label: s.label,
+      displayOrder: s.displayOrder ?? 0,
+      // deals expose `probability`; tickets expose `ticketState` (OPEN/CLOSED).
+      probability: s.metadata?.probability != null ? Number(s.metadata.probability) : undefined,
+      state: s.metadata?.ticketState,
+      isClosed: s.metadata?.isClosed === 'true' || s.metadata?.isClosed === true,
+    }))
+  return { id: raw.id, label: raw.label, objectType, stages }
+}
+
+/**
+ * Fetch deal and ticket pipelines. Needs crm.objects.deals.read /
+ * crm.objects.tickets.read scopes; a missing scope for one object is tolerated
+ * (that object's pipelines come back empty) so the pull doesn't fail wholesale.
+ */
+export async function fetchPipelines({ token, base = 'https://api.hubapi.com' } = {}) {
+  async function forObject(objectType) {
+    const res = await fetch(`${base}/crm/v3/pipelines/${objectType}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return [] // e.g. scope not granted for this object
+    const json = await res.json().catch(() => ({}))
+    return (json.results || []).map((p) => normalisePipeline(p, objectType === 'deals' ? 'deal' : 'ticket'))
+  }
+  const [deals, tickets] = await Promise.all([forObject('deals'), forObject('tickets')])
+  return [...deals, ...tickets]
+}
+
+/** Everything a portal needs in one pull: workflows + pipelines. */
+export async function fetchPortalData({ token, base = 'https://api.hubapi.com' } = {}) {
+  const [dataset, pipelines] = await Promise.all([
+    fetchDataset({ token, base }),
+    fetchPipelines({ token, base }).catch(() => []),
+  ])
+  return { ...dataset, pipelines }
 }

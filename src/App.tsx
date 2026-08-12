@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { WorkflowDataset } from './types'
-import { loadDataset, refreshFromHubspot, propertiesAcrossWorkflows, datasetStats } from './lib/data'
+import {
+  loadDataset,
+  refreshFromHubspot,
+  propertiesAcrossWorkflows,
+  datasetStats,
+  getSession,
+  loadPortalDataset,
+  refreshPortal,
+  logout,
+  NeedsSyncError,
+  type SessionInfo,
+} from './lib/data'
 import { Overview } from './components/Overview'
 import { PropertyMap } from './components/PropertyMap'
 import { PropertyLookup } from './components/PropertyLookup'
@@ -8,8 +19,10 @@ import { Reports } from './components/Reports'
 import { Audit } from './components/Audit'
 import { TriggerExplorer } from './components/TriggerExplorer'
 import { ChainMap } from './components/ChainMap'
+import { Pipelines } from './components/Pipelines'
 import { Chat } from './components/Chat'
 import { Logs } from './components/Logs'
+import { Login } from './components/Login'
 import { WorkflowFlow, KIND_META } from './components/WorkflowFlow'
 
 type Tab =
@@ -17,6 +30,7 @@ type Tab =
   | 'audit'
   | 'triggers'
   | 'chains'
+  | 'pipelines'
   | 'reports'
   | 'flow'
   | 'properties'
@@ -25,7 +39,10 @@ type Tab =
   | 'logs'
 
 export function App() {
+  const [session, setSession] = useState<SessionInfo | null>(null)
+  const [portalId, setPortalId] = useState<string | null>(null)
   const [dataset, setDataset] = useState<WorkflowDataset | null>(null)
+  const [needsSync, setNeedsSync] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('overview')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -33,18 +50,50 @@ export function App() {
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null)
 
+  const isPortal = session?.mode === 'portal'
+
+  // Resolve mode + initial data.
   useEffect(() => {
-    loadDataset().then(setDataset).catch((e) => setError(String(e)))
+    getSession().then((s) => {
+      setSession(s)
+      if (s.mode === 'standalone') {
+        loadDataset().then(setDataset).catch((e) => setError(String(e)))
+      } else if (s.authenticated && s.portals?.length) {
+        setPortalId(s.portals[0].id)
+      }
+    })
   }, [])
+
+  // Load the selected portal's dataset.
+  useEffect(() => {
+    if (!portalId) return
+    setDataset(null)
+    setNeedsSync(false)
+    setError(null)
+    loadPortalDataset(portalId)
+      .then(setDataset)
+      .catch((e) => {
+        if (e instanceof NeedsSyncError) setNeedsSync(true)
+        else setError(String(e))
+      })
+  }, [portalId])
 
   async function refresh() {
     setRefreshing(true)
     setRefreshMsg(null)
     try {
-      const { count } = await refreshFromHubspot()
-      const fresh = await loadDataset()
-      setDataset(fresh)
-      setRefreshMsg(`Pulled ${count} workflows from HubSpot.`)
+      if (isPortal && portalId) {
+        const { count, pipelines } = await refreshPortal(portalId)
+        const fresh = await loadPortalDataset(portalId)
+        setDataset(fresh)
+        setNeedsSync(false)
+        setRefreshMsg(`Pulled ${count} workflows${pipelines ? ` · ${pipelines} pipelines` : ''}.`)
+      } else {
+        const { count } = await refreshFromHubspot()
+        const fresh = await loadDataset()
+        setDataset(fresh)
+        setRefreshMsg(`Pulled ${count} workflows from HubSpot.`)
+      }
     } catch (e) {
       setRefreshMsg(String(e instanceof Error ? e.message : e))
     } finally {
@@ -72,21 +121,35 @@ export function App() {
     setTab('properties')
   }
 
+  if (!session) {
+    return <div className="app"><div className="empty"><h1>Loading…</h1></div></div>
+  }
+
+  if (isPortal && !session.authenticated) {
+    return <Login />
+  }
+
   if (error) {
     return (
       <div className="app">
         <div className="empty">
           <h1>Couldn’t load workflow data</h1>
           <pre>{error}</pre>
-          <p>Run <code>npm run fetch</code> with a HubSpot token, or restore <code>public/data/workflows.sample.json</code>.</p>
+          <p>
+            {isPortal
+              ? 'Try refreshing the portal, or reconnect it.'
+              : 'Run `npm run fetch` with a HubSpot token, or restore the sample file.'}
+          </p>
         </div>
       </div>
     )
   }
 
-  if (!dataset) {
+  if (!dataset && !needsSync) {
     return <div className="app"><div className="empty"><h1>Loading…</h1></div></div>
   }
+
+  const portals = session.portals ?? []
 
   return (
     <div className="app">
@@ -96,11 +159,36 @@ export function App() {
           <div>
             <div className="topbar__title">HubSpot Workflow &amp; Property Visualiser</div>
             <div className="topbar__sub">
-              <span className={`source-dot ${dataset.source === 'live' ? 'source-dot--live' : 'source-dot--sample'}`} />
-              {dataset.source === 'live' ? 'Live data' : 'Sample data'} · generated{' '}
-              {new Date(dataset.generatedAt).toLocaleString()}
+              {dataset ? (
+                <>
+                  <span className={`source-dot ${dataset.source === 'live' ? 'source-dot--live' : 'source-dot--sample'}`} />
+                  {dataset.source === 'live' ? 'Live data' : 'Sample data'} · generated{' '}
+                  {new Date(dataset.generatedAt).toLocaleString()}
+                </>
+              ) : (
+                <>
+                  <span className="source-dot source-dot--sample" /> Not synced yet
+                </>
+              )}
             </div>
           </div>
+          {isPortal && (
+            <div className="portal-bar">
+              <select
+                className="input input--sm"
+                value={portalId ?? ''}
+                onChange={(e) => setPortalId(e.target.value)}
+              >
+                {portals.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <a className="btn btn--sm" href="/auth/hubspot" title="Connect another portal">+ Portal</a>
+              <button className="btn btn--sm" onClick={() => logout().then(() => window.location.reload())}>
+                Log out
+              </button>
+            </div>
+          )}
           <div className="topbar__refresh">
             <button className="btn btn--primary btn--sm" onClick={refresh} disabled={refreshing}>
               {refreshing ? 'Refreshing…' : '↻ Refresh from HubSpot'}
@@ -120,6 +208,9 @@ export function App() {
           </button>
           <button className={tab === 'chains' ? 'tab tab--on' : 'tab'} onClick={() => setTab('chains')}>
             Chains
+          </button>
+          <button className={tab === 'pipelines' ? 'tab tab--on' : 'tab'} onClick={() => setTab('pipelines')}>
+            Pipelines
           </button>
           <button className={tab === 'reports' ? 'tab tab--on' : 'tab'} onClick={() => setTab('reports')}>
             Reports
@@ -143,6 +234,17 @@ export function App() {
       </header>
 
       <main className="main">
+        {needsSync ? (
+          <div className="empty">
+            <h2>“{portals.find((p) => p.id === portalId)?.name ?? 'This portal'}” hasn’t been synced yet</h2>
+            <p className="muted">Pull its workflows and pipelines from HubSpot to get started.</p>
+            <button className="btn btn--primary" onClick={refresh} disabled={refreshing}>
+              {refreshing ? 'Syncing…' : '↻ Sync now'}
+            </button>
+            {refreshMsg && <p className="muted">{refreshMsg}</p>}
+          </div>
+        ) : (
+         <>
         {tab === 'overview' && (
           <Overview
             workflows={workflows}
@@ -171,6 +273,14 @@ export function App() {
         )}
 
         {tab === 'chains' && <ChainMap workflows={workflows} onOpenWorkflow={(id) => openWorkflow(id)} />}
+
+        {tab === 'pipelines' && (
+          <Pipelines
+            pipelines={dataset?.pipelines ?? []}
+            workflows={workflows}
+            onOpenWorkflow={(id, property) => openWorkflow(id, property)}
+          />
+        )}
 
         {tab === 'flow' && selected && (
           <div className="flow-view">
@@ -270,9 +380,11 @@ export function App() {
           />
         )}
 
-        {tab === 'chat' && <Chat />}
+        {tab === 'chat' && <Chat portalId={isPortal ? portalId : null} />}
 
         {tab === 'logs' && <Logs />}
+         </>
+        )}
       </main>
     </div>
   )

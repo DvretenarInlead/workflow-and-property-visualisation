@@ -16,7 +16,7 @@ const SUGGESTIONS = [
  * Chat panel that talks to the /api/chat proxy. The server injects the workflow
  * dataset as context and streams Claude's reply back as plain text.
  */
-export function Chat() {
+export function Chat({ portalId }: { portalId?: string | null }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -41,7 +41,7 @@ export function Chat() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, portalId: portalId ?? undefined }),
       })
       if (!res.ok || !res.body) {
         const detail = await res.text().catch(() => '')
