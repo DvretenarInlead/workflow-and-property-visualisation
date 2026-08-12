@@ -3,10 +3,12 @@ import type { WorkflowDataset } from './types'
 import { loadDataset, propertiesAcrossWorkflows, datasetStats } from './lib/data'
 import { Overview } from './components/Overview'
 import { PropertyMap } from './components/PropertyMap'
+import { PropertyLookup } from './components/PropertyLookup'
 import { Reports } from './components/Reports'
+import { Chat } from './components/Chat'
 import { WorkflowFlow, KIND_META } from './components/WorkflowFlow'
 
-type Tab = 'overview' | 'reports' | 'flow' | 'properties'
+type Tab = 'overview' | 'reports' | 'flow' | 'properties' | 'lookup' | 'chat'
 
 export function App() {
   const [dataset, setDataset] = useState<WorkflowDataset | null>(null)
@@ -80,6 +82,12 @@ export function App() {
           </button>
           <button className={tab === 'properties' ? 'tab tab--on' : 'tab'} onClick={() => setTab('properties')}>
             Property map
+          </button>
+          <button className={tab === 'lookup' ? 'tab tab--on' : 'tab'} onClick={() => setTab('lookup')}>
+            Property lookup
+          </button>
+          <button className={tab === 'chat' ? 'tab tab--on' : 'tab'} onClick={() => setTab('chat')}>
+            Ask AI
           </button>
         </nav>
       </header>
@@ -192,6 +200,17 @@ export function App() {
             onSelectWorkflow={(id, property) => openWorkflow(id, property)}
           />
         )}
+
+        {tab === 'lookup' && (
+          <PropertyLookup
+            workflows={workflows}
+            properties={properties}
+            initialProperty={highlight}
+            onOpenWorkflow={(id, property) => openWorkflow(id, property)}
+          />
+        )}
+
+        {tab === 'chat' && <Chat />}
       </main>
     </div>
   )

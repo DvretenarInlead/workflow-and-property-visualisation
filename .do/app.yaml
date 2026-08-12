@@ -1,0 +1,32 @@
+# Digital Ocean App Platform spec.
+# Deploy: doctl apps create --spec .do/app.yaml   (or paste into the DO dashboard)
+# One Node web service builds the static app and serves it + the /api/chat proxy.
+name: workflow-and-property-visualisation
+region: nyc
+services:
+  - name: web
+    environment_slug: node-js
+    github:
+      repo: DvretenarInlead/workflow-and-property-visualisation
+      branch: claude/workflow-visualization-hc5eaw
+      deploy_on_push: true
+    build_command: npm ci && npm run build
+    run_command: npm start
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    health_check:
+      http_path: /api/health
+    envs:
+      # Required for the "Ask AI" chat. Add as an encrypted secret in the DO dashboard.
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      # Optional — override if your key targets a different model.
+      - key: ANTHROPIC_MODEL
+        scope: RUN_TIME
+        value: claude-opus-5
+      # Optional — HubSpot token if you run `npm run fetch` at build time for live data.
+      # - key: HUBSPOT_TOKEN
+      #   scope: BUILD_TIME
+      #   type: SECRET
