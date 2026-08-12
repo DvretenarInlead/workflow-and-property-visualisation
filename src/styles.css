@@ -80,7 +80,7 @@ body {
 .topbar__title { font-weight: 700; font-size: 15px; }
 .topbar__sub { color: var(--muted); font-size: 12px; }
 
-.tabs { display: flex; gap: 4px; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .tab {
   border: 1px solid transparent;
   background: transparent;
@@ -356,6 +356,76 @@ body {
   background: var(--panel);
 }
 .chat__composer .input { flex: 1; }
+
+/* ---- Trigger explorer ---- */
+.trigger-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.trigger-chip {
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  border: 1px solid var(--border); background: var(--panel); border-radius: 10px;
+  padding: 12px 14px; cursor: pointer; font: inherit; color: var(--text); min-width: 150px;
+}
+.trigger-chip:hover { border-color: var(--accent); }
+.trigger-chip__name { font-family: ui-monospace, monospace; font-weight: 700; font-size: 13px; }
+.trigger-chip__meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.wf-card__trigger { display: flex; gap: 10px; padding: 12px 14px; align-items: center; }
+.badge--trigger { background: var(--k-trigger); }
+
+/* ---- Chain map ---- */
+.chain-view { display: flex; flex-direction: column; width: 100%; height: 100%; }
+.chain-empty { width: 100%; display: grid; place-items: center; }
+.chain-legend {
+  display: flex; align-items: center; gap: 18px; padding: 12px 20px;
+  border-bottom: 1px solid var(--border); background: var(--panel); font-size: 12px; color: var(--viz-ink-2);
+  flex-wrap: wrap;
+}
+.chain-legend__item { display: inline-flex; align-items: center; gap: 8px; }
+.chain-legend__line { width: 26px; height: 0; border-top: 2px dashed #94a3b8; }
+.chain-legend__line--loop { border-top-style: solid; border-top-color: #ef4444; }
+.chain-canvas { flex: 1; height: 100%; }
+.chain-node {
+  background: #fff; border: 2px solid var(--k-trigger); border-radius: 10px;
+  padding: 10px 12px; min-width: 180px; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.chain-node__name { font-weight: 700; font-size: 13px; color: #0b0b0b; }
+.chain-node__meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+
+/* ---- Audit ---- */
+.audit { width: 100%; overflow: auto; padding: 20px; }
+.audit__summary { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.sev-tile {
+  border: 1px solid var(--border); background: var(--panel); border-radius: 12px;
+  padding: 12px 18px; min-width: 96px; cursor: pointer; font: inherit; color: var(--text); text-align: left;
+}
+.sev-tile:hover:not(:disabled) { border-color: var(--accent); }
+.sev-tile:disabled { opacity: .5; cursor: default; }
+.sev-tile--on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.sev-tile__value { font-size: 26px; font-weight: 700; line-height: 1; }
+.sev-tile__label { color: var(--muted); font-size: 12px; margin-top: 4px; font-weight: 600; }
+.sev-tile--high .sev-tile__value { color: #dc2626; }
+.sev-tile--medium .sev-tile__value { color: #d97706; }
+.sev-tile--low .sev-tile__value { color: #2563eb; }
+
+.audit__list { display: grid; gap: 10px; }
+.finding {
+  display: flex; gap: 12px; padding: 14px 16px; border: 1px solid var(--border);
+  border-left-width: 4px; border-radius: 10px; background: var(--panel);
+}
+.finding--high { border-left-color: #dc2626; }
+.finding--medium { border-left-color: #d97706; }
+.finding--low { border-left-color: #2563eb; }
+.finding--info { border-left-color: var(--muted); }
+.finding__icon { font-size: 16px; }
+.finding__body { flex: 1; min-width: 0; }
+.finding__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.finding__title { font-weight: 700; }
+.finding__cat { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+.finding__detail { color: var(--viz-ink-2); font-size: 13px; margin: 4px 0 8px; line-height: 1.5; }
+.finding__wfs { display: flex; flex-wrap: wrap; gap: 6px; }
+.finding__wf {
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  padding: 3px 9px; border-radius: 20px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.finding__wf:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---- Empty / error ---- */
 .empty { margin: auto; text-align: center; padding: 40px; max-width: 560px; }

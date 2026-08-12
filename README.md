@@ -16,7 +16,10 @@ from the HubSpot Automation API.
 
 | View | What it shows |
 | --- | --- |
-| **Overview** | Counts, enabled/off status, workflows-per-object, and the most-used properties ranked by read/write references. |
+| **Overview** | Counts, enabled/off status, workflows-per-object, most-used properties, plus how workflows are triggered (trigger-type mix and top enrollment properties). |
+| **Audit** | Ranked findings across all workflows: trigger loops (infinite re-enrollment), write races (a property set by several workflows), broken cascades (an enabled workflow enrolled by a property only disabled workflows set), dead writes, overlapping triggers, and empty workflows. |
+| **Triggers** | Trigger-first view: pick an enrollment property (e.g. `dealstage`) to see every workflow whose *trigger* uses it — grouped by object and type. |
+| **Chains** | The write→enroll cascade graph: when one workflow writes a property that triggers another, an arrow links them. Shows how automation flows across the portal; self-loops are flagged red. |
 | **Reports** | Four analytics charts: property impact (workflows depending on each property), reads vs writes by object, workflow complexity, and step-type mix. Colours use a colourblind-safe, validated palette; light & dark modes both supported. |
 | **Workflow flow** | Per-workflow diagram (React Flow). Nodes are colour-coded by type (trigger / branch / action / set-property / delay / end). Pick a property to highlight everywhere it's touched. |
 | **Property map** | A property × workflow matrix. Each cell is **R** (read), **W** (write) or **RW**. Filter by object type or "shared only", and click any cell to jump into that workflow with the property highlighted. |
@@ -74,7 +77,7 @@ The health check at `/api/health` returns the active model.
 ## Using your real HubSpot data
 
 1. In HubSpot, create a **Private App** (Settings → Integrations → Private Apps)
-   with the scopes `automation` (read) and `crm.schemas.contacts.read`.
+   with the `automation` (read) scope.
 2. Copy the token:
 
    ```bash
@@ -82,11 +85,12 @@ The health check at `/api/health` returns the active model.
    # edit .env and set HUBSPOT_TOKEN=pat-na1-...
    ```
 
-3. Pull and normalise your workflows:
+3. **Actually run the pull** (setting the token alone does nothing):
 
    ```bash
    set -a && source .env && set +a
-   npm run fetch
+   npm run fetch      # prints "Wrote N workflows to …/public/data/workflows.json"
+   npm run dev        # now shows your workflows
    ```
 
    This calls the HubSpot v4 flows API (`/automation/v4/flows`), normalises each
@@ -94,6 +98,23 @@ The health check at `/api/health` returns the active model.
    app prefers this file over the sample automatically.
 
 The fetched file is git-ignored so you don't commit portal data.
+
+### Still seeing only sample data?
+
+The app loads `workflows.json` if it exists and **falls back to the sample**
+otherwise — so you see sample data whenever the fetch hasn't run:
+
+- **Locally:** you set the token but never ran `npm run fetch`. Run it (step 3);
+  if it errors, the token is the problem (needs the `automation` read scope and a
+  `pat-na1-…` private-app token). After it succeeds, restart `npm run dev`.
+- **On Digital Ocean:** the build has to fetch, because `workflows.json` isn't in
+  the repo. The included `.do/app.yaml` runs `npm run fetch` during the build and
+  declares `HUBSPOT_TOKEN` as a **build-time** secret — set that secret in the DO
+  dashboard and redeploy. (Runtime-only env vars aren't visible during the build,
+  so a `RUN_TIME` token won't work — it must be `BUILD_TIME`.)
+
+To refresh live data you re-run the fetch (locally) or redeploy (on DO); it isn't
+pulled on every page load.
 
 ## How property extraction works
 
@@ -124,6 +145,7 @@ scripts/fetch-workflows.mjs         HubSpot API → normalised JSON
 public/data/workflows.sample.json   Committed demo data
 src/types.ts                        Shared normalised schema
 src/lib/data.ts                     Loading + cross-workflow aggregation
+src/lib/analysis.ts                 Triggers, cascade graph, audit findings
 src/lib/reports.ts                  Report aggregations
 src/lib/layout.ts                   Layered graph layout for the flow diagram
 src/components/Overview.tsx         Dashboard

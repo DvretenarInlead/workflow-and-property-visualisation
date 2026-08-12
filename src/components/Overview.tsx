@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import type { Workflow, PropertyAcrossWorkflows } from '../types'
 import type { DatasetStats } from '../lib/data'
+import { triggerTypeCounts, triggerProperties } from '../lib/analysis'
 
 export function Overview({
   workflows,
@@ -15,6 +17,10 @@ export function Overview({
   onOpenProperty: (name: string) => void
 }) {
   const topProps = properties.slice(0, 8)
+  const triggerTypes = useMemo(() => triggerTypeCounts(workflows), [workflows])
+  const topTriggers = useMemo(() => triggerProperties(workflows).slice(0, 8), [workflows])
+  const maxType = Math.max(1, ...triggerTypes.map((t) => t.count))
+  const maxTrig = Math.max(1, ...topTriggers.map((t) => t.workflowIds.length))
   return (
     <div className="overview">
       <div className="cards">
@@ -88,6 +94,44 @@ export function Overview({
                 </li>
               )
             })}
+          </ul>
+        </section>
+      </div>
+
+      <div className="overview__grid">
+        <section className="panel">
+          <h2 className="panel__title">How workflows are triggered</h2>
+          <ul className="proplist">
+            {triggerTypes.map((t) => (
+              <li key={t.type} className="proplist__item">
+                <div className="proplist__head">
+                  <span className="proplist__name">{t.type}</span>
+                  <span className="proplist__count">{t.count} wf</span>
+                </div>
+                <div className="proplist__bar">
+                  <span className="proplist__bar-read" style={{ width: `${(t.count / maxType) * 100}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel">
+          <h2 className="panel__title">Top enrollment properties</h2>
+          <ul className="proplist">
+            {topTriggers.map((t) => (
+              <li key={`${t.objectType}:${t.name}`} className="proplist__item" onClick={() => onOpenProperty(t.name)}>
+                <div className="proplist__head">
+                  <span className="proplist__name">{t.name}</span>
+                  <span className="proplist__count">{t.workflowIds.length} wf</span>
+                </div>
+                <div className="proplist__bar">
+                  <span className="proplist__bar-read" style={{ width: `${(t.workflowIds.length / maxTrig) * 100}%` }} />
+                </div>
+                <div className="proplist__meta">{t.objectType} · enrolls {t.workflowIds.length} workflow{t.workflowIds.length === 1 ? '' : 's'}</div>
+              </li>
+            ))}
+            {topTriggers.length === 0 && <li className="lookup__empty">No trigger properties detected.</li>}
           </ul>
         </section>
       </div>

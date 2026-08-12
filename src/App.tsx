@@ -5,10 +5,22 @@ import { Overview } from './components/Overview'
 import { PropertyMap } from './components/PropertyMap'
 import { PropertyLookup } from './components/PropertyLookup'
 import { Reports } from './components/Reports'
+import { Audit } from './components/Audit'
+import { TriggerExplorer } from './components/TriggerExplorer'
+import { ChainMap } from './components/ChainMap'
 import { Chat } from './components/Chat'
 import { WorkflowFlow, KIND_META } from './components/WorkflowFlow'
 
-type Tab = 'overview' | 'reports' | 'flow' | 'properties' | 'lookup' | 'chat'
+type Tab =
+  | 'overview'
+  | 'audit'
+  | 'triggers'
+  | 'chains'
+  | 'reports'
+  | 'flow'
+  | 'properties'
+  | 'lookup'
+  | 'chat'
 
 export function App() {
   const [dataset, setDataset] = useState<WorkflowDataset | null>(null)
@@ -74,6 +86,15 @@ export function App() {
           <button className={tab === 'overview' ? 'tab tab--on' : 'tab'} onClick={() => setTab('overview')}>
             Overview
           </button>
+          <button className={tab === 'audit' ? 'tab tab--on' : 'tab'} onClick={() => setTab('audit')}>
+            Audit
+          </button>
+          <button className={tab === 'triggers' ? 'tab tab--on' : 'tab'} onClick={() => setTab('triggers')}>
+            Triggers
+          </button>
+          <button className={tab === 'chains' ? 'tab tab--on' : 'tab'} onClick={() => setTab('chains')}>
+            Chains
+          </button>
           <button className={tab === 'reports' ? 'tab tab--on' : 'tab'} onClick={() => setTab('reports')}>
             Reports
           </button>
@@ -111,6 +132,16 @@ export function App() {
             onOpenProperty={openProperty}
           />
         )}
+
+        {tab === 'audit' && (
+          <Audit workflows={workflows} onOpenWorkflow={(id, property) => openWorkflow(id, property ?? undefined)} />
+        )}
+
+        {tab === 'triggers' && (
+          <TriggerExplorer workflows={workflows} onOpenWorkflow={(id, property) => openWorkflow(id, property)} />
+        )}
+
+        {tab === 'chains' && <ChainMap workflows={workflows} onOpenWorkflow={(id) => openWorkflow(id)} />}
 
         {tab === 'flow' && selected && (
           <div className="flow-view">
