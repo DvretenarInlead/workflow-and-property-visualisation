@@ -25,6 +25,7 @@ from the HubSpot Automation API.
 | **Property map** | A property × workflow matrix. Each cell is **R** (read), **W** (write) or **RW**. Filter by object type or "shared only", and click any cell to jump into that workflow with the property highlighted. |
 | **Property lookup** | Type a property (e.g. `dealstage`) and CRM object to see every workflow that uses it and the exact steps that read or write it — the "what is each workflow doing with this property?" view. |
 | **Ask AI** | A chat that answers questions about your workflows and property dependencies. Backed by the Claude API through a small server-side proxy (the API key never reaches the browser). |
+| **Logs** | Every call the server makes to the HubSpot API (from the Refresh button) — time, endpoint, status, result, and duration. Auto-refreshes every 5s. |
 
 ## Quick start
 
@@ -99,22 +100,39 @@ The health check at `/api/health` returns the active model.
 
 The fetched file is git-ignored so you don't commit portal data.
 
+### Refreshing from inside the app (no rebuild)
+
+When the app is served by its Node server (`npm start`, or on Digital Ocean), the
+header has a **↻ Refresh from HubSpot** button. It calls `POST /api/refresh`, which
+pulls live workflows using the server-side `HUBSPOT_TOKEN`, holds the result in
+memory, and the app re-renders against it — no rebuild or redeploy. The **Logs** tab
+shows each HubSpot call (status, workflow count, duration).
+
+- Set `HUBSPOT_TOKEN` as a **run-time** secret (`scope: RUN_TIME` in `.do/app.yaml`,
+  already configured) — it's read when the button is pressed, not at build time.
+- The refreshed data lives in memory for that server instance and resets on restart
+  or redeploy; press Refresh again to re-pull. (The token is never exposed to the
+  browser — only the server calls HubSpot.)
+- The server's environment must allow outbound HTTPS to `api.hubapi.com`. Digital
+  Ocean App Platform allows outbound by default; a locked-down egress policy would
+  need that host allowlisted.
+
+> **Note:** `/api/refresh` is unauthenticated — anyone who can reach the app can
+> trigger a pull. Fine for an internal tool; if the app is public, put it behind
+> your own auth (or ask and I'll add a shared-secret gate).
+
 ### Still seeing only sample data?
 
-The app loads `workflows.json` if it exists and **falls back to the sample**
-otherwise — so you see sample data whenever the fetch hasn't run:
+The app falls back to the sample whenever no live data is present. To get live data:
 
-- **Locally:** you set the token but never ran `npm run fetch`. Run it (step 3);
-  if it errors, the token is the problem (needs the `automation` read scope and a
-  `pat-na1-…` private-app token). After it succeeds, restart `npm run dev`.
-- **On Digital Ocean:** the build has to fetch, because `workflows.json` isn't in
-  the repo. The included `.do/app.yaml` runs `npm run fetch` during the build and
-  declares `HUBSPOT_TOKEN` as a **build-time** secret — set that secret in the DO
-  dashboard and redeploy. (Runtime-only env vars aren't visible during the build,
-  so a `RUN_TIME` token won't work — it must be `BUILD_TIME`.)
-
-To refresh live data you re-run the fetch (locally) or redeploy (on DO); it isn't
-pulled on every page load.
+- **In the app (any deploy with the server):** press **↻ Refresh from HubSpot** in
+  the header. If it errors, check the **Logs** tab — a 401/403 there means the token
+  is missing or lacks the `automation` read scope; "HUBSPOT_TOKEN is not set" means
+  add it as a **run-time** secret on your host and restart.
+- **Locally without the button:** run `npm run fetch` (step 3) to write
+  `public/data/workflows.json`, then `npm run dev`.
+- **On Digital Ocean:** set `HUBSPOT_TOKEN` as a secret (scope **Run time**), deploy,
+  then press Refresh in the app. No rebuild needed to re-pull.
 
 ## How property extraction works
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { WorkflowDataset } from './types'
-import { loadDataset, propertiesAcrossWorkflows, datasetStats } from './lib/data'
+import { loadDataset, refreshFromHubspot, propertiesAcrossWorkflows, datasetStats } from './lib/data'
 import { Overview } from './components/Overview'
 import { PropertyMap } from './components/PropertyMap'
 import { PropertyLookup } from './components/PropertyLookup'
@@ -9,6 +9,7 @@ import { Audit } from './components/Audit'
 import { TriggerExplorer } from './components/TriggerExplorer'
 import { ChainMap } from './components/ChainMap'
 import { Chat } from './components/Chat'
+import { Logs } from './components/Logs'
 import { WorkflowFlow, KIND_META } from './components/WorkflowFlow'
 
 type Tab =
@@ -21,6 +22,7 @@ type Tab =
   | 'properties'
   | 'lookup'
   | 'chat'
+  | 'logs'
 
 export function App() {
   const [dataset, setDataset] = useState<WorkflowDataset | null>(null)
@@ -28,10 +30,27 @@ export function App() {
   const [tab, setTab] = useState<Tab>('overview')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [highlight, setHighlight] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null)
 
   useEffect(() => {
     loadDataset().then(setDataset).catch((e) => setError(String(e)))
   }, [])
+
+  async function refresh() {
+    setRefreshing(true)
+    setRefreshMsg(null)
+    try {
+      const { count } = await refreshFromHubspot()
+      const fresh = await loadDataset()
+      setDataset(fresh)
+      setRefreshMsg(`Pulled ${count} workflows from HubSpot.`)
+    } catch (e) {
+      setRefreshMsg(String(e instanceof Error ? e.message : e))
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const workflows = dataset?.workflows ?? []
   const properties = useMemo(() => propertiesAcrossWorkflows(workflows), [workflows])
@@ -77,9 +96,16 @@ export function App() {
           <div>
             <div className="topbar__title">HubSpot Workflow &amp; Property Visualiser</div>
             <div className="topbar__sub">
+              <span className={`source-dot ${dataset.source === 'live' ? 'source-dot--live' : 'source-dot--sample'}`} />
               {dataset.source === 'live' ? 'Live data' : 'Sample data'} · generated{' '}
               {new Date(dataset.generatedAt).toLocaleString()}
             </div>
+          </div>
+          <div className="topbar__refresh">
+            <button className="btn btn--primary btn--sm" onClick={refresh} disabled={refreshing}>
+              {refreshing ? 'Refreshing…' : '↻ Refresh from HubSpot'}
+            </button>
+            {refreshMsg && <span className="topbar__refresh-msg">{refreshMsg}</span>}
           </div>
         </div>
         <nav className="tabs">
@@ -109,6 +135,9 @@ export function App() {
           </button>
           <button className={tab === 'chat' ? 'tab tab--on' : 'tab'} onClick={() => setTab('chat')}>
             Ask AI
+          </button>
+          <button className={tab === 'logs' ? 'tab tab--on' : 'tab'} onClick={() => setTab('logs')}>
+            Logs
           </button>
         </nav>
       </header>
@@ -242,6 +271,8 @@ export function App() {
         )}
 
         {tab === 'chat' && <Chat />}
+
+        {tab === 'logs' && <Logs />}
       </main>
     </div>
   )

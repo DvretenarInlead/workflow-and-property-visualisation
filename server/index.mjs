@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { fetchDataset } from './hubspot.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -12,12 +13,24 @@ const DIST = join(ROOT, 'dist')
 const PORT = process.env.PORT || 8080
 // Default to the latest Opus; override with ANTHROPIC_MODEL if your key targets another model.
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5'
+const HUBSPOT_BASE = process.env.HUBSPOT_API_BASE || 'https://api.hubapi.com'
+
+// Live dataset pulled via the Refresh button; wins over any on-disk file until restart.
+let liveDataset = null
+
+// In-memory log of calls to the HubSpot API (newest first, capped).
+const MAX_LOG = 200
+const apiLog = []
+function logHubspot(entry) {
+  apiLog.unshift({ at: new Date().toISOString(), ...entry })
+  if (apiLog.length > MAX_LOG) apiLog.length = MAX_LOG
+}
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
 
-// --- Load the workflow dataset the chat reasons over (live pull preferred, sample fallback) ---
-async function loadDataset() {
+// --- Load the on-disk workflow dataset (live build-time pull preferred, sample fallback) ---
+async function loadFileDataset() {
   const candidates = [
     join(DIST, 'data', 'workflows.json'),
     join(DIST, 'data', 'workflows.sample.json'),
@@ -34,6 +47,11 @@ async function loadDataset() {
     }
   }
   return null
+}
+
+/** The dataset the app + chat currently use: an in-session refresh wins over the file. */
+async function currentDataset() {
+  return liveDataset ?? (await loadFileDataset())
 }
 
 /** Render the dataset into a compact, readable knowledge base for the system prompt. */
@@ -66,9 +84,55 @@ function buildSystemPrompt(dataset) {
 
 let cachedPrompt = null
 async function systemPrompt() {
-  if (!cachedPrompt) cachedPrompt = buildSystemPrompt(await loadDataset())
+  if (!cachedPrompt) cachedPrompt = buildSystemPrompt(await currentDataset())
   return cachedPrompt
 }
+
+// --- Data + refresh endpoints ---
+
+// The app loads its dataset here (in-session refresh preferred, else the file, else sample).
+app.get('/api/data', async (_req, res) => {
+  const dataset = await currentDataset()
+  if (!dataset) return res.status(404).json({ error: 'No workflow data available.' })
+  res.json(dataset)
+})
+
+// Refresh CTA: pull live workflows from HubSpot using the server-side token.
+app.post('/api/refresh', async (_req, res) => {
+  const token = process.env.HUBSPOT_TOKEN
+  if (!token) {
+    logHubspot({ endpoint: '/automation/v4/flows', status: 'skipped', message: 'HUBSPOT_TOKEN not set' })
+    return res.status(400).json({
+      error: 'HUBSPOT_TOKEN is not set on the server. Add it as a run-time secret to enable live refresh.',
+    })
+  }
+  const started = Date.now()
+  try {
+    const dataset = await fetchDataset({ token, base: HUBSPOT_BASE })
+    liveDataset = dataset
+    cachedPrompt = null // chat should reason over the fresh data
+    logHubspot({
+      endpoint: '/automation/v4/flows',
+      status: 'success',
+      workflows: dataset.workflows.length,
+      ms: Date.now() - started,
+    })
+    res.json({ ok: true, count: dataset.workflows.length, generatedAt: dataset.generatedAt })
+  } catch (err) {
+    logHubspot({
+      endpoint: '/automation/v4/flows',
+      status: 'error',
+      message: err?.message || 'HubSpot request failed.',
+      ms: Date.now() - started,
+    })
+    res.status(502).json({ error: err?.message || 'HubSpot request failed.' })
+  }
+})
+
+// HubSpot API call log (newest first).
+app.get('/api/logs', (_req, res) => {
+  res.json({ entries: apiLog })
+})
 
 // --- Chat proxy: keeps the API key server-side and streams the reply back ---
 app.post('/api/chat', async (req, res) => {

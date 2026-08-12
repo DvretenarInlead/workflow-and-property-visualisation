@@ -10,10 +10,7 @@ services:
       repo: DvretenarInlead/workflow-and-property-visualisation
       branch: claude/workflow-visualization-hc5eaw
       deploy_on_push: true
-    # Pull live workflows from HubSpot at build time, then build. The `|| echo`
-    # keeps the deploy working even if the token is missing or the pull fails
-    # (it just falls back to the committed sample data).
-    build_command: npm ci && (npm run fetch || echo "no HubSpot data — using sample") && npm run build
+    build_command: npm ci && npm run build
     run_command: npm start
     http_port: 8080
     instance_size_slug: apps-s-1vcpu-0.5gb
@@ -29,9 +26,9 @@ services:
       - key: ANTHROPIC_MODEL
         scope: RUN_TIME
         value: claude-opus-5
-      # HubSpot private-app token (automation read scope). With this set, each
-      # deploy pulls live workflows; without it, the app ships the sample data.
-      # Add as an encrypted secret in the DO dashboard.
+      # HubSpot private-app token (automation read scope). Used at run time by the
+      # "Refresh from HubSpot" button (POST /api/refresh). Add as an encrypted
+      # secret in the DO dashboard. Without it the app shows the sample data.
       - key: HUBSPOT_TOKEN
-        scope: BUILD_TIME
+        scope: RUN_TIME
         type: SECRET
