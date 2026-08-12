@@ -16,7 +16,10 @@ from the HubSpot Automation API.
 
 | View | What it shows |
 | --- | --- |
-| **Overview** | Counts, enabled/off status, workflows-per-object, and the most-used properties ranked by read/write references. |
+| **Overview** | Counts, enabled/off status, workflows-per-object, most-used properties, plus how workflows are triggered (trigger-type mix and top enrollment properties). |
+| **Audit** | Ranked findings across all workflows: trigger loops (infinite re-enrollment), write races (a property set by several workflows), broken cascades (an enabled workflow enrolled by a property only disabled workflows set), dead writes, overlapping triggers, and empty workflows. |
+| **Triggers** | Trigger-first view: pick an enrollment property (e.g. `dealstage`) to see every workflow whose *trigger* uses it — grouped by object and type. |
+| **Chains** | The write→enroll cascade graph: when one workflow writes a property that triggers another, an arrow links them. Shows how automation flows across the portal; self-loops are flagged red. |
 | **Reports** | Four analytics charts: property impact (workflows depending on each property), reads vs writes by object, workflow complexity, and step-type mix. Colours use a colourblind-safe, validated palette; light & dark modes both supported. |
 | **Workflow flow** | Per-workflow diagram (React Flow). Nodes are colour-coded by type (trigger / branch / action / set-property / delay / end). Pick a property to highlight everywhere it's touched. |
 | **Property map** | A property × workflow matrix. Each cell is **R** (read), **W** (write) or **RW**. Filter by object type or "shared only", and click any cell to jump into that workflow with the property highlighted. |
@@ -124,6 +127,7 @@ scripts/fetch-workflows.mjs         HubSpot API → normalised JSON
 public/data/workflows.sample.json   Committed demo data
 src/types.ts                        Shared normalised schema
 src/lib/data.ts                     Loading + cross-workflow aggregation
+src/lib/analysis.ts                 Triggers, cascade graph, audit findings
 src/lib/reports.ts                  Report aggregations
 src/lib/layout.ts                   Layered graph layout for the flow diagram
 src/components/Overview.tsx         Dashboard
