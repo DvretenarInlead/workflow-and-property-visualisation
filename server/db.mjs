@@ -115,3 +115,7 @@ export async function getPortalData(id) {
   const res = await getPool().query('SELECT data FROM portals WHERE id=$1', [id])
   return res.rowCount ? res.rows[0].data : null
 }
+
+export async function deletePortal(id) {
+  await getPool().query('DELETE FROM portals WHERE id=$1', [id])
+}

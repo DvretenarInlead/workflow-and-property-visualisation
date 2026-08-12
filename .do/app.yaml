@@ -39,10 +39,14 @@ services:
       - key: APP_SECRET
         scope: RUN_TIME
         type: SECRET
-      # Postgres connection (bound automatically from the managed DB below).
+      # Postgres connection string. Use an EXTERNAL Postgres (Neon, Supabase,
+      # Railway, RDS, or your own) and paste its URL here as an encrypted secret —
+      # e.g. postgres://user:pass@host/db?sslmode=require
+      # (If your DO account CAN provision a managed DB, instead uncomment the
+      #  `databases` block at the bottom and set this value to ${db.DATABASE_URL}.)
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${db.DATABASE_URL}
+        type: SECRET
       # HubSpot public app OAuth credentials (Developer account → Apps → Auth).
       - key: HUBSPOT_CLIENT_ID
         scope: RUN_TIME
@@ -60,10 +64,14 @@ services:
         scope: RUN_TIME
         value: oauth automation crm.objects.deals.read crm.objects.tickets.read
 
-# Managed Postgres for portal mode (portals + encrypted tokens + cached data).
-# Remove this block if you only use standalone mode.
-databases:
-  - name: db
-    engine: PG
-    version: "16"
-    production: false
+# Managed Postgres — DISABLED by default because it requires a DO plan that
+# allows managed databases (a limit-0 account fails with "databases.limit_exceeded").
+# Portal mode uses an EXTERNAL Postgres via the DATABASE_URL secret above instead.
+#
+# If your DO account CAN provision a managed DB, uncomment this block and set
+# DATABASE_URL's value to ${db.DATABASE_URL} (removing its `type: SECRET`).
+# databases:
+#   - name: db
+#     engine: PG
+#     version: "16"
+#     production: false
